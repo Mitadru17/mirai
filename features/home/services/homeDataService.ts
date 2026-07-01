@@ -1,57 +1,110 @@
 /**
- * Mirai Home Data Service
- * Mock data provider — will be replaced with SQLite queries in the future.
+ * Home Data Service
+ *
+ * Maps the derived learning snapshot (real, persisted progress) into the
+ * view-models the Home cards consume. Pure and synchronous — no mock data.
  */
 
-import type { HomeData, CurrentLesson, DailyTask, DailyStats, ReviewItem, GardenData } from '../types';
+import type { LearningSnapshot } from '../../../src/stores/progressStore';
+import { DAILY_GOAL_MINUTES } from '../../../src/stores/learningSelectors';
+import type {
+  HomeData,
+  CurrentLesson,
+  DailyTask,
+  DailyStats,
+  ReviewItem,
+  GardenData,
+} from '../types';
 
-export function getCurrentLesson(): CurrentLesson {
+/** A friendly plant-stage name based on how many lessons are mastered. */
+function describePlant(mastered: number): string {
+  if (mastered === 0) return 'Ungerminated Seed';
+  if (mastered < 3) return 'Tender Sprout';
+  if (mastered < 6) return 'Young Seedling';
+  if (mastered < 12) return 'Growing Sapling';
+  if (mastered < 20) return 'Sturdy Oak';
+  return 'Ancient Oak';
+}
+
+function toCurrentLesson(learning: LearningSnapshot): CurrentLesson {
+  const { lesson, module } = learning.currentLessonRef;
   return {
-    name: 'Array Fundamentals',
-    topic: 'Arrays & Strings',
-    progress: 0.65,
-    timeRemaining: 12,
+    id: lesson.id,
+    name: lesson.title,
+    topic: module.title,
+    progress: learning.lessonFraction(lesson.id),
+    timeRemaining: lesson.estimatedMinutes,
   };
 }
 
-export function getDailyTasks(): DailyTask[] {
-  return [
-    { id: 'task-1', title: 'Review yesterday', completed: true },
-    { id: 'task-2', title: "Learn today's lesson", completed: false },
-    { id: 'task-3', title: 'Solve one practice problem', completed: false },
+function toDailyTasks(learning: LearningSnapshot): DailyTask[] {
+  const currentHref = `/lesson/${learning.currentLessonRef.lesson.id}`;
+  const review = learning.reviewLessons[0];
+
+  const tasks: DailyTask[] = [
+    {
+      id: 'learn',
+      title: "Learn today's lesson",
+      completed: learning.lessonsCompletedToday >= 1,
+      href: currentHref,
+    },
+    {
+      id: 'goal',
+      title: `Study for ${DAILY_GOAL_MINUTES} minutes`,
+      completed: learning.minutesToday >= DAILY_GOAL_MINUTES,
+      href: currentHref,
+    },
   ];
+
+  if (review) {
+    tasks.push({
+      id: 'review',
+      title: `Review ${review.module.title}`,
+      completed: false,
+      href: `/lesson/${review.lesson.id}`,
+    });
+  } else {
+    tasks.push({
+      id: 'streak',
+      title: 'Keep your streak alive',
+      completed: learning.currentStreak > 0 && learning.minutesToday > 0,
+      href: currentHref,
+    });
+  }
+
+  return tasks;
 }
 
-export function getDailyStats(): DailyStats {
+function toReviews(learning: LearningSnapshot): ReviewItem[] {
+  return learning.reviewLessons.slice(0, 1).map((ref) => ({
+    topic: ref.lesson.title,
+    estimatedMinutes: Math.max(3, Math.round(ref.lesson.estimatedMinutes / 2)),
+    lessonId: ref.lesson.id,
+  }));
+}
+
+function toGarden(learning: LearningSnapshot): GardenData {
   return {
-    completionPercentage: 65,
-    minutesToday: 28,
-    currentStreak: 12,
+    health: learning.garden.health,
+    plantType: describePlant(learning.garden.mastered),
+    growth: learning.overallPercent,
   };
 }
 
-export function getReviews(): ReviewItem[] {
-  // Return empty array to hide review card initially
-  // Change to populated array to show review card
-  return [
-    { topic: 'Binary Search Trees', estimatedMinutes: 8 },
-  ];
-}
-
-export function getGardenData(): GardenData {
+function toDailyStats(learning: LearningSnapshot): DailyStats {
   return {
-    health: 87,
-    plantType: 'Oak Seedling',
-    growth: 42,
+    completionPercentage: learning.dailyStats.completionPercentage,
+    minutesToday: learning.dailyStats.minutesToday,
+    currentStreak: learning.dailyStats.currentStreak,
   };
 }
 
-export function getHomeData(): HomeData {
+export function buildHomeData(learning: LearningSnapshot): HomeData {
   return {
-    currentLesson: getCurrentLesson(),
-    dailyTasks: getDailyTasks(),
-    dailyStats: getDailyStats(),
-    reviews: getReviews(),
-    garden: getGardenData(),
+    currentLesson: toCurrentLesson(learning),
+    dailyTasks: toDailyTasks(learning),
+    dailyStats: toDailyStats(learning),
+    reviews: toReviews(learning),
+    garden: toGarden(learning),
   };
 }

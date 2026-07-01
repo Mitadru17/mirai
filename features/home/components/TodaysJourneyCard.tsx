@@ -5,32 +5,31 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { CheckCircle2, Circle } from 'lucide-react-native';
-import Animated, { FadeIn, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { CheckCircle2, Circle, ChevronRight } from 'lucide-react-native';
 import { AppCard, AppText, AnimatedPressable } from '../../../src/components/ui';
 import { useColors } from '../../../src/theme/ThemeContext';
 import { spacing, layout } from '../../../src/theme/spacing';
-import { animations } from '../../../src/theme/animations';
 import type { DailyTask } from '../types';
 
 interface TodaysJourneyCardProps {
   tasks: DailyTask[];
-  onToggleTask: (taskId: string) => void;
+  onTaskPress: (task: DailyTask) => void;
 }
 
 interface TaskItemProps {
   task: DailyTask;
-  onToggle: () => void;
+  onPress: () => void;
 }
 
-function TaskItem({ task, onToggle }: TaskItemProps) {
+function TaskItem({ task, onPress }: TaskItemProps) {
   const colors = useColors();
   const Icon = task.completed ? CheckCircle2 : Circle;
   const iconColor = task.completed ? colors.accent.lime : colors.tertiary;
 
   return (
     <AnimatedPressable
-      onPress={onToggle}
+      onPress={onPress}
+      disabled={!task.href}
       style={styles.taskItem}
       accessibilityRole="button"
       accessibilityLabel={`${task.title}, ${task.completed ? 'completed' : 'not completed'}`}
@@ -44,27 +43,32 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
         >
           {task.title}
         </AppText>
+        {!task.completed && task.href ? (
+          <ChevronRight size={16} color={colors.tertiary} strokeWidth={1.5} />
+        ) : null}
       </View>
     </AnimatedPressable>
   );
 }
 
-export function TodaysJourneyCard({ tasks, onToggleTask }: TodaysJourneyCardProps) {
+export function TodaysJourneyCard({ tasks, onTaskPress }: TodaysJourneyCardProps) {
   const colors = useColors();
+  const done = tasks.filter((t) => t.completed).length;
 
   return (
     <AppCard padding={spacing.xl} style={styles.card}>
-      <AppText variant="label" color={colors.secondary} style={styles.label}>
-        TODAY'S JOURNEY
-      </AppText>
-      
+      <View style={styles.header}>
+        <AppText variant="label" color={colors.secondary}>
+          TODAY'S JOURNEY
+        </AppText>
+        <AppText variant="caption" color={colors.tertiary}>
+          {done}/{tasks.length}
+        </AppText>
+      </View>
+
       <View style={styles.taskList}>
         {tasks.map((task) => (
-          <TaskItem
-            key={task.id}
-            task={task}
-            onToggle={() => onToggleTask(task.id)}
-          />
+          <TaskItem key={task.id} task={task} onPress={() => onTaskPress(task)} />
         ))}
       </View>
     </AppCard>
@@ -75,7 +79,10 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: layout.cardGap,
   },
-  label: {
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.base,
   },
   taskList: {

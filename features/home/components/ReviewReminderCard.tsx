@@ -22,8 +22,7 @@ export function ReviewReminderCard({ review }: ReviewReminderCardProps) {
   const router = useRouter();
 
   const handleReview = () => {
-    // TODO: Navigate to review screen when route exists
-    console.log('Navigate to review:', review.topic);
+    if (review.lessonId) router.push(`/lesson/${review.lessonId}`);
   };
 
   return (

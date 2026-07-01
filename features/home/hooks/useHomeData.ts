@@ -1,11 +1,12 @@
 /**
  * useHomeData Hook
- * Fetches and manages all home screen data.
+ * Derives the Home dashboard view-model from live, persisted learning progress.
  */
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import type { HomeData } from '../types';
-import { getHomeData } from '../services/homeDataService';
+import { buildHomeData } from '../services/homeDataService';
+import { useLearning } from '../../../src/stores/progressStore';
 
 interface UseHomeDataReturn {
   data: HomeData | null;
@@ -14,28 +15,16 @@ interface UseHomeDataReturn {
 }
 
 export function useHomeData(): UseHomeDataReturn {
-  const [data, setData] = useState<HomeData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const learning = useLearning();
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setIsLoading(true);
-        // Simulate async fetch
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        const homeData = getHomeData();
-        setData(homeData);
-        setError(null);
-      } catch (e) {
-        setError(e instanceof Error ? e : new Error('Failed to load home data'));
-      } finally {
-        setIsLoading(false);
-      }
-    }
+  const data = useMemo<HomeData | null>(
+    () => (learning.hydrated ? buildHomeData(learning) : null),
+    [learning]
+  );
 
-    fetchData();
-  }, []);
-
-  return { data, isLoading, error };
+  return {
+    data,
+    isLoading: !learning.hydrated,
+    error: null,
+  };
 }

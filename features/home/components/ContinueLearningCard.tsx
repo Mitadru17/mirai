@@ -22,8 +22,7 @@ export function ContinueLearningCard({ lesson }: ContinueLearningCardProps) {
   const router = useRouter();
 
   const handleContinue = () => {
-    // TODO: Navigate to lesson detail when route exists
-    console.log('Navigate to lesson:', lesson.name);
+    router.push(`/lesson/${lesson.id}`);
   };
 
   return (

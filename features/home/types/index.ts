@@ -3,6 +3,7 @@
  */
 
 export interface CurrentLesson {
+  id: string;
   name: string;
   topic: string;
   progress: number; // 0-1
@@ -13,6 +14,8 @@ export interface DailyTask {
   id: string;
   title: string;
   completed: boolean;
+  /** Optional route the task navigates to when tapped. */
+  href?: string;
 }
 
 export interface DailyStats {
@@ -24,6 +27,8 @@ export interface DailyStats {
 export interface ReviewItem {
   topic: string;
   estimatedMinutes: number;
+  /** Lesson id to reopen for review, if available. */
+  lessonId?: string;
 }
 
 export interface GardenData {

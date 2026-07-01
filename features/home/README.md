@@ -19,9 +19,8 @@ features/home/
 ├── hooks/               # Custom React hooks
 │   ├── useHomeData.ts
 │   ├── useRotatingContent.ts
-│   ├── useDailyTasks.ts
 │   └── index.ts
-├── services/            # Data layer (mock → SQLite)
+├── services/            # Maps live progress → view-models
 │   ├── homeDataService.ts
 │   └── rotatingContentService.ts
 ├── types/               # TypeScript interfaces
@@ -45,10 +44,9 @@ features/home/
 - Continue button with navigation
 
 ### 3. Today's Journey Card
-- Three daily tasks
-- Interactive checkboxes
-- Animated completion state
-- Task state managed in component
+- Three daily tasks derived from real progress (lesson done, study goal, review/streak)
+- Completion reflects persisted state — not togglable
+- Tapping a task navigates to the relevant lesson
 
 ### 4. Daily Progress Card
 - Animated progress ring (0-100%)
@@ -85,24 +83,17 @@ HomeScreen
     ↓
 useHomeData() hook
     ↓
-homeDataService.ts (mock data)
+useLearning()  ← src/stores/progressStore (hydrated from SQLite)
     ↓
-Components receive data props
+buildHomeData(snapshot)  ← homeDataService.ts (pure mapper)
+    ↓
+Components receive real, persisted data props
 ```
 
-## Mock Data → SQLite Migration
-
-All data services are designed to be easily replaced:
-
-```typescript
-// Current: Mock data
-import { getHomeData } from 'features/home/services/homeDataService';
-
-// Future: SQLite
-import { getHomeData } from 'src/database/queries/homeQueries';
-```
-
-The interface remains identical, only the implementation changes.
+All Home data is now live: it derives from the curriculum + the SQLite-backed
+progress store (`src/stores/progressStore`, `src/services/progressService`).
+`homeDataService.buildHomeData()` is a pure function mapping the learning
+snapshot into the card view-models — there is no mock data.
 
 ## Rotating Content
 
@@ -115,9 +106,9 @@ Uses date-based rotation to ensure different content each day without requiring 
 
 ## State Management
 
-- **Zustand (Global)**: User name, streak data
-- **Component State**: Task completion (via useDailyTasks hook)
-- **React State**: Loaded home data (via useHomeData hook)
+- **Zustand (Global)**: `progressStore` — lesson progress + streaks, hydrated from SQLite at startup
+- **Derived view-model**: `useLearning()` memoises the full learning snapshot
+- **Home mapping**: `useHomeData()` maps the snapshot into card props
 
 ## Animations
 
@@ -135,12 +126,11 @@ All animations use `FadeIn` component from `src/components/ui/`.
 
 ## Navigation
 
-Placeholder navigation implemented:
-- Continue button → lesson detail (console.log for now)
-- Review button → review screen (console.log for now)
-- View Garden button → garden screen (console.log for now)
-
-When routes exist, replace console.log with `router.push(...)`.
+Live navigation via `expo-router`:
+- Continue button → `/lesson/[lessonId]` (current lesson)
+- Daily task → the relevant lesson
+- Review button → `/lesson/[lessonId]` (the lesson due for review)
+- View Garden button → `/(tabs)/journal` (Memory Garden)
 
 ## Responsive Design
 
@@ -184,9 +174,8 @@ import {
 
 ## Future Enhancements
 
-1. Replace mock data service with SQLite queries
-2. Add actual navigation routes for Continue/Review/Garden
-3. Persist task completion state in database
-4. Add error boundaries for resilience
-5. Add skeleton loading states
-6. Implement pull-to-refresh
+1. Spaced-repetition scheduling for reviews (currently age-based ≥3 days)
+2. Per-block lesson progress (finer than started/completed)
+3. Add error boundaries for resilience
+4. Skeleton loading states + pull-to-refresh
+5. Onboarding-driven daily goal (currently a fixed 20-minute target)

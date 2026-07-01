@@ -45,6 +45,22 @@ export async function initializeDatabase(): Promise<void> {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Per-lesson progress. Source of truth for the learning engine:
+    -- what has been started/completed, and quiz performance per lesson.
+    CREATE TABLE IF NOT EXISTS lesson_progress (
+      lesson_id TEXT PRIMARY KEY,
+      module_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'not_started',  -- not_started | in_progress | completed
+      quiz_correct INTEGER NOT NULL DEFAULT 0,
+      quiz_total INTEGER NOT NULL DEFAULT 0,
+      last_viewed_at TEXT,
+      completed_at TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_lesson_progress_module
+      ON lesson_progress (module_id);
+
     CREATE TABLE IF NOT EXISTS journal_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,

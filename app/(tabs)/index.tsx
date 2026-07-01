@@ -3,7 +3,8 @@
  * Production-ready home experience with modular feature architecture.
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
+import { useRouter } from 'expo-router';
 import { AppScreen, LoadingIndicator, FadeIn, AppText } from '../../src/components/ui';
 import {
   GreetingSection,
@@ -16,13 +17,18 @@ import {
   QuoteCard,
 } from '../../features/home';
 import { useHomeData } from '../../features/home/hooks/useHomeData';
-import { useDailyTasks } from '../../features/home/hooks/useDailyTasks';
+import type { DailyTask } from '../../features/home/types';
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { data, isLoading, error } = useHomeData();
-  
-  // Call all hooks before any conditional returns (Rules of Hooks)
-  const { tasks, toggleTask } = useDailyTasks(data?.dailyTasks ?? []);
+
+  const handleTaskPress = useCallback(
+    (task: DailyTask) => {
+      if (task.href) router.push(task.href as never);
+    },
+    [router]
+  );
 
   if (isLoading || !data) {
     return (
@@ -56,7 +62,7 @@ export default function HomeScreen() {
 
       {/* Today's Journey */}
       <FadeIn delay={120} duration={420}>
-        <TodaysJourneyCard tasks={tasks} onToggleTask={toggleTask} />
+        <TodaysJourneyCard tasks={data.dailyTasks} onTaskPress={handleTaskPress} />
       </FadeIn>
 
       {/* Daily Progress */}

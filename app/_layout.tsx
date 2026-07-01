@@ -22,6 +22,7 @@ import {
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 import { initializeDatabase } from '../src/services/database';
 import { useAppStore } from '../src/stores/appStore';
+import { hydrateProgress } from '../src/stores/progressStore';
 import { LaunchScreen } from '../src/components/launch/LaunchScreen';
 
 import '../global.css';
@@ -77,6 +78,7 @@ export default function RootLayout() {
       try {
         await initializeDatabase();
         setDbInitialized(true);
+        await hydrateProgress();
         setReady(true);
       } catch (e) {
         console.warn('Init error:', e);

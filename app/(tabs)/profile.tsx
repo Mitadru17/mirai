@@ -12,31 +12,51 @@
  *  9. More hierarchy/interactivity
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Award, Flame, Target, BookOpen } from 'lucide-react-native';
 import { AppScreen }        from '../../src/components/ui/AppScreen';
 import { AppCard }          from '../../src/components/ui/AppCard';
 import { AppText }          from '../../src/components/ui/AppText';
-import { ProgressBar }      from '../../src/components/ui/ProgressBar';
 import { FadeIn }           from '../../src/components/ui/FadeIn';
 import { AnimatedPressable } from '../../src/components/ui/AnimatedPressable';
 import { useTheme }         from '../../src/theme/ThemeContext';
 import { useAppStore }      from '../../src/stores/appStore';
+import { useLearning }      from '../../src/stores/progressStore';
 import { spacing, radius, layout } from '../../src/theme/spacing';
-
-const weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const weekActivity = [0.2, 0.5, 0.8, 0.4, 0.9, 0.3, 0.7];
-
-const achievements = [
-  { id: 'first', title: 'First Steps', desc: 'Complete your first lesson', earned: true },
-  { id: 'streak7', title: 'Week Warrior', desc: '7-day learning streak', earned: true },
-  { id: 'problems10', title: 'Problem Solver', desc: 'Solve 10 problems', earned: false },
-];
+import { clamp }            from '../../src/utils/helpers';
+import { getStreakMessage } from '../../src/utils/constants';
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
   const userName   = useAppStore((s) => s.userName);
+  const {
+    completedLessons,
+    totalLessons,
+    overallPercent,
+    currentStreak,
+    studyTotals,
+    weeklyActivity,
+    masteredModules,
+  } = useLearning();
+
+  // Discipline score: half completion, half consistency (capped 14-day streak).
+  const disciplineScore = useMemo(
+    () => clamp(Math.round(overallPercent * 0.5 + (Math.min(currentStreak, 14) / 14) * 50), 0, 100),
+    [overallPercent, currentStreak]
+  );
+
+  const achievements = useMemo(
+    () => [
+      { id: 'first', title: 'First Steps', desc: 'Complete your first lesson', earned: completedLessons >= 1 },
+      { id: 'streak7', title: 'Week Warrior', desc: '7-day learning streak', earned: currentStreak >= 7 },
+      { id: 'curious', title: 'Curious Mind', desc: 'Complete 10 lessons', earned: completedLessons >= 10 },
+      { id: 'master', title: 'Module Master', desc: 'Master an entire module', earned: masteredModules.length >= 1 },
+    ],
+    [completedLessons, currentStreak, masteredModules.length]
+  );
+
+  const subtitle = `Beginner · ${completedLessons} lesson${completedLessons === 1 ? '' : 's'} complete`;
 
   return (
     <AppScreen scrollable>
@@ -49,7 +69,7 @@ export default function ProfileScreen() {
                 {userName}
               </AppText>
               <AppText variant="subheadline" color={colors.secondary}>
-                Beginner · 14 problems solved
+                {subtitle}
               </AppText>
             </View>
             <View style={[s.avatar, { 
@@ -75,16 +95,16 @@ export default function ProfileScreen() {
           </View>
           <View style={s.scoreRow}>
             <AppText variant="display" color={colors.accent.lime} style={s.scoreValue}>
-              84
+              {disciplineScore}
             </AppText>
             <View style={s.scoreInfo}>
               <View style={[s.rankBadge, { backgroundColor: colors.accent.limeDim }]}>
                 <AppText variant="caption" color={colors.accent.lime} style={s.rankText}>
-                  Top 15%
+                  {currentStreak}-day streak
                 </AppText>
               </View>
               <AppText variant="caption" color={colors.secondary} style={s.rankSubtext}>
-                of all learners
+                {getStreakMessage(currentStreak)}
               </AppText>
             </View>
           </View>
@@ -97,16 +117,16 @@ export default function ProfileScreen() {
           <AppCard padding={spacing.lg} style={s.statCard}>
             <Target size={18} color={colors.primary} strokeWidth={1.5} />
             <AppText variant="title2" color={colors.primary} style={s.statValue}>
-              14
+              {completedLessons}
             </AppText>
             <AppText variant="caption" color={colors.secondary}>
-              Problems Solved
+              Lessons Done
             </AppText>
           </AppCard>
           <AppCard padding={spacing.lg} style={s.statCard}>
             <Flame size={18} color={colors.primary} strokeWidth={1.5} />
             <AppText variant="title2" color={colors.primary} style={s.statValue}>
-              12
+              {currentStreak}
             </AppText>
             <AppText variant="caption" color={colors.secondary}>
               Day Streak
@@ -127,19 +147,19 @@ export default function ProfileScreen() {
             </AppText>
           </View>
           <View style={s.activityContainer}>
-            {weekActivity.map((val, i) => (
+            {weeklyActivity.map((day, i) => (
               <View key={i} style={s.activityCol}>
                 <View style={s.barContainer}>
                   <View style={[
-                    s.activityBar, 
-                    { 
-                      height: Math.max(6, val * 56), 
-                      backgroundColor: val > 0.6 ? colors.accent.lime : colors.cardElevated,
+                    s.activityBar,
+                    {
+                      height: Math.max(6, day.value * 56),
+                      backgroundColor: day.value > 0.6 ? colors.accent.lime : colors.cardElevated,
                     },
                   ]} />
                 </View>
                 <AppText variant="caption2" color={colors.tertiary} style={s.dayLabel}>
-                  {weekDays[i]}
+                  {day.label}
                 </AppText>
               </View>
             ))}
@@ -153,20 +173,26 @@ export default function ProfileScreen() {
           <AppText variant="label" color={colors.secondary} style={s.sectionLabel}>
             MASTERED TOPICS
           </AppText>
-          {['Binary Search', 'Two Pointers', 'Sliding Window'].map((topic, i) => (
-            <View key={topic} style={[
-              s.topicRow,
-              i > 0 && { borderTopWidth: 1, borderTopColor: colors.borderSubtle },
-            ]}>
-              <View style={[s.topicIcon, { backgroundColor: colors.accent.limeDim }]}>
-                <BookOpen size={14} color={colors.accent.lime} strokeWidth={1.5} />
+          {masteredModules.length === 0 ? (
+            <AppText variant="subheadline" color={colors.tertiary}>
+              Complete every lesson in a module to master it. Your first is within reach.
+            </AppText>
+          ) : (
+            masteredModules.map((module, i) => (
+              <View key={module.id} style={[
+                s.topicRow,
+                i > 0 && { borderTopWidth: 1, borderTopColor: colors.borderSubtle },
+              ]}>
+                <View style={[s.topicIcon, { backgroundColor: colors.accent.limeDim }]}>
+                  <BookOpen size={14} color={colors.accent.lime} strokeWidth={1.5} />
+                </View>
+                <AppText variant="subheadlineMedium" color={colors.primary} style={s.topicName}>
+                  {module.title}
+                </AppText>
+                <AppText variant="caption" color={colors.accent.lime}>✓</AppText>
               </View>
-              <AppText variant="subheadlineMedium" color={colors.primary} style={s.topicName}>
-                {topic}
-              </AppText>
-              <AppText variant="caption" color={colors.accent.lime}>✓</AppText>
-            </View>
-          ))}
+            ))
+          )}
         </AppCard>
       </FadeIn>
 

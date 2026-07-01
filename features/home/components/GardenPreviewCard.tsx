@@ -34,8 +34,7 @@ export function GardenPreviewCard({ garden }: GardenPreviewCardProps) {
   const router = useRouter();
 
   const handleViewGarden = () => {
-    // TODO: Navigate to garden screen when route exists
-    console.log('Navigate to garden');
+    router.push('/(tabs)/journal');
   };
 
   return (

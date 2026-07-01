@@ -18,6 +18,7 @@ import { AppText }     from '../../src/components/ui/AppText';
 import { FadeIn }      from '../../src/components/ui/FadeIn';
 import { useTheme }    from '../../src/theme/ThemeContext';
 import { spacing, layout } from '../../src/theme/spacing';
+import { useLearning } from '../../src/stores/progressStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -196,6 +197,7 @@ const StatCard = React.memo(function StatCard({
 export default function GardenScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { garden } = useLearning();
 
   return (
     <View style={[s.container, { backgroundColor: colors.background }]}>
@@ -221,16 +223,19 @@ export default function GardenScreen() {
           </FadeIn>
         </View>
 
-        {/* Stats Cards — scrollable in case of small screens */}
+        {/* Stats Cards — real, derived from persisted progress */}
         <View style={s.cardsContainer}>
           <FadeIn delay={250} duration={500}>
-            <StatCard label="MASTERED" value="12" color={colors.accent.lime} dotType="solid" />
+            <StatCard label="MASTERED" value={String(garden.mastered)} color={colors.accent.lime} dotType="solid" />
           </FadeIn>
           <FadeIn delay={350} duration={500}>
-            <StatCard label="LEARNING" value="4" color={colors.primary} dotType="hollow" />
+            <StatCard label="LEARNING" value={String(garden.learning)} color={colors.primary} dotType="hollow" />
           </FadeIn>
           <FadeIn delay={450} duration={500}>
-            <StatCard label="REVIEW NEEDED" value="3" color={colors.secondary} dotType="quarter" />
+            <StatCard label="REVIEW NEEDED" value={String(garden.review)} color={colors.secondary} dotType="quarter" />
+          </FadeIn>
+          <FadeIn delay={550} duration={500}>
+            <StatCard label="GARDEN HEALTH" value={`${garden.health}%`} color={colors.accent.limeLight} dotType="solid" />
           </FadeIn>
         </View>
       </ScrollView>

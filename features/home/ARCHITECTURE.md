@@ -1,5 +1,12 @@
 # Home Feature Architecture
 
+> **Note (Phase 2 — Learning Engine):** Sections below that describe a *mock*
+> data service and a `useDailyTasks` toggle hook are historical. Home data is now
+> live: `useHomeData()` reads `useLearning()` (the SQLite-backed `progressStore`)
+> and `homeDataService.buildHomeData()` maps that snapshot to card props. Daily
+> tasks are derived from real progress, and navigation targets real routes
+> (`/lesson/[lessonId]`, `/(tabs)/journal`). See `README.md` for the current flow.
+
 ## Visual Component Tree
 
 ```

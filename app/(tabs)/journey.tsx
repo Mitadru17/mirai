@@ -1,168 +1,165 @@
 /**
- * Learning Path — Journey through DSA topics.
- * Audit fixes:
- *  1. Thicker, more visible timeline lines and nodes
- *  2. Completed card icon visible (not too faint)
- *  3. Reduced glow inconsistency — subtle, uniform accent border
- *  4. Improved progress bar (thicker, better track contrast)
- *  5. Better locked item appearance (clear but not obscured)
- *  6. Consistent card spacing between items
- *  7. Card padding and radius unified
- *  8. Overall visual hierarchy stronger
+ * Journey — the learning roadmap.
+ *
+ * A living timeline of the curriculum, driven entirely by real module progress.
+ * Modules unlock as their prerequisites complete; each card jumps to the next
+ * unfinished lesson. Nothing here is hardcoded — add a module to the curriculum
+ * and it appears automatically.
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Check, Terminal, Brackets, Link2, Layers } from 'lucide-react-native';
+import { Check, Lock } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { AppScreen }   from '../../src/components/ui/AppScreen';
 import { AppCard }     from '../../src/components/ui/AppCard';
 import { AppText }     from '../../src/components/ui/AppText';
 import { ProgressBar } from '../../src/components/ui/ProgressBar';
 import { FadeIn }      from '../../src/components/ui/FadeIn';
 import { useTheme }    from '../../src/theme/ThemeContext';
-import { spacing, radius, layout } from '../../src/theme/spacing';
+import { spacing, radius } from '../../src/theme/spacing';
+import { getCurriculumIcon } from '../../src/curriculum';
+import type { Lesson } from '../../src/curriculum';
+import { useLearning } from '../../src/stores/progressStore';
+import type { ModuleProgress } from '../../src/stores/learningSelectors';
+import { formatDuration } from '../../src/utils/helpers';
 
-type Status = 'completed' | 'in_progress' | 'locked';
+type NodeStatus = 'completed' | 'in_progress' | 'available' | 'locked';
 
-const pathData = [
-  {
-    id: 'fundamentals',
-    status: 'completed' as Status,
-    title: 'Fundamentals',
-    desc: 'Big O notation, memory models, and basic language mechanics.',
-    icon: Terminal,
-    progress: { current: 15, total: 15, percent: 100 },
-  },
-  {
-    id: 'arrays',
-    status: 'in_progress' as Status,
-    title: 'Arrays & Strings',
-    desc: 'Two pointers, sliding window, and prefix sum techniques.',
-    icon: Brackets,
-    progress: { current: 13, total: 20, percent: 65 },
-  },
-  {
-    id: 'linked',
-    status: 'locked' as Status,
-    title: 'Linked Lists',
-    desc: 'Pointer manipulation, cycle detection, and reversal.',
-    icon: Link2,
-  },
-  {
-    id: 'stacks',
-    status: 'locked' as Status,
-    title: 'Stacks & Queues',
-    desc: 'Monotonic stacks, BFS queues, and expression evaluation.',
-    icon: Layers,
-  },
-];
+function nodeStatus(mp: ModuleProgress): NodeStatus {
+  if (mp.status === 'completed') return 'completed';
+  if (mp.status === 'locked') return 'locked';
+  if (mp.status === 'in_progress') return 'in_progress';
+  return 'available';
+}
 
-function TimelineNode({ status, isFirst, isLast }: { status: Status; isFirst: boolean; isLast: boolean }) {
+function statusLabel(status: NodeStatus): string {
+  switch (status) {
+    case 'completed':   return 'COMPLETED';
+    case 'in_progress': return 'IN PROGRESS';
+    case 'available':   return 'READY';
+    case 'locked':      return 'LOCKED';
+  }
+}
+
+function TimelineNode({ status, isFirst, isLast }: { status: NodeStatus; isFirst: boolean; isLast: boolean }) {
   const { colors } = useTheme();
-  
-  const isCompleted = status === 'completed';
-  const isInProgress = status === 'in_progress';
-  const isLocked = status === 'locked';
+  const active = status === 'completed' || status === 'in_progress';
 
-  const topLineColor = isFirst ? 'transparent' : (isCompleted || isInProgress ? colors.accent.lime : colors.muted);
-  const bottomLineColor = isLast ? 'transparent' : (isCompleted ? colors.accent.lime : colors.muted);
+  const topLineColor = isFirst ? 'transparent' : active ? colors.accent.lime : colors.muted;
+  const bottomLineColor = isLast ? 'transparent' : status === 'completed' ? colors.accent.lime : colors.muted;
 
   return (
     <View style={s.nodeCol}>
-      {/* Top line */}
       <View style={[s.line, { backgroundColor: topLineColor }]} />
-      
-      {/* Node */}
       <View style={s.nodeOuter}>
-        {isCompleted && (
+        {status === 'completed' && (
           <View style={[s.nodeCompleted, { backgroundColor: colors.accent.lime }]}>
             <Check size={12} color={colors.background} strokeWidth={3} />
           </View>
         )}
-        {isInProgress && (
+        {status === 'in_progress' && (
           <View style={[s.nodeActive, { borderColor: colors.accent.lime }]}>
             <View style={[s.nodeActiveDot, { backgroundColor: colors.accent.lime }]} />
           </View>
         )}
-        {isLocked && (
+        {status === 'available' && (
+          <View style={[s.nodeActive, { borderColor: colors.tertiary }]}>
+            <View style={[s.nodeActiveDot, { backgroundColor: colors.tertiary }]} />
+          </View>
+        )}
+        {status === 'locked' && (
           <View style={[s.nodeLocked, { borderColor: colors.muted }]}>
             <View style={[s.nodeLockedDot, { backgroundColor: colors.muted }]} />
           </View>
         )}
       </View>
-
-      {/* Bottom line */}
       <View style={[s.line, s.lineBottom, { backgroundColor: bottomLineColor }]} />
     </View>
   );
 }
 
-function PathCard({ item, index, isFirst, isLast }: { 
-  item: typeof pathData[0]; index: number; isFirst: boolean; isLast: boolean 
+function PathCard({
+  mp,
+  index,
+  isFirst,
+  isLast,
+  onPress,
+}: {
+  mp: ModuleProgress;
+  index: number;
+  isFirst: boolean;
+  isLast: boolean;
+  onPress: () => void;
 }) {
   const { colors } = useTheme();
-  const Icon = item.icon;
-  
-  const isCompleted = item.status === 'completed';
-  const isInProgress = item.status === 'in_progress';
-  const isLocked = item.status === 'locked';
+  const status = nodeStatus(mp);
+  const Icon = getCurriculumIcon(mp.module.icon);
+  const isLocked = status === 'locked';
+  const isInProgress = status === 'in_progress';
 
   return (
     <View style={s.row}>
-      <TimelineNode status={item.status} isFirst={isFirst} isLast={isLast} />
-      
+      <TimelineNode status={status} isFirst={isFirst} isLast={isLast} />
+
       <View style={s.cardWrapper}>
-        <FadeIn delay={index * 80}>
-          <AppCard 
+        <FadeIn delay={index * 70}>
+          <AppCard
             variant={isInProgress ? 'glow' : 'default'}
             padding={spacing.xl}
-            style={isLocked ? { opacity: 0.45 } : undefined}
+            onPress={isLocked ? undefined : onPress}
+            style={isLocked ? s.locked : undefined}
+            accessibilityLabel={`${mp.module.title}, ${statusLabel(status).toLowerCase()}`}
           >
             <View style={s.cardHeader}>
               <View style={s.titleGroup}>
-                <AppText 
-                  variant="label" 
-                  color={isLocked ? colors.tertiary : colors.accent.lime}
-                >
-                  {item.status.replace('_', ' ').toUpperCase()}
+                <AppText variant="label" color={isLocked ? colors.tertiary : colors.accent.lime}>
+                  {statusLabel(status)}
                 </AppText>
-                <AppText
-                  variant="title2"
-                  color={colors.primary}
-                  style={s.cardTitle}
-                >
-                  {item.title}
+                <AppText variant="title2" color={colors.primary} style={s.cardTitle}>
+                  {mp.module.title}
                 </AppText>
               </View>
-              <View style={[s.iconBox, { 
-                backgroundColor: isInProgress ? colors.accent.limeDim : 'rgba(255,255,255,0.04)',
-                borderColor: isInProgress ? colors.accent.limeMuted : 'rgba(255,255,255,0.06)',
-              }]}>
-                <Icon 
-                  size={20} 
-                  color={isLocked ? colors.tertiary : (isInProgress ? colors.accent.lime : colors.primary)} 
-                  strokeWidth={1.5} 
-                />
+              <View
+                style={[
+                  s.iconBox,
+                  {
+                    backgroundColor: isInProgress ? colors.accent.limeDim : 'rgba(255,255,255,0.04)',
+                    borderColor: isInProgress ? colors.accent.limeMuted : 'rgba(255,255,255,0.06)',
+                  },
+                ]}
+              >
+                {isLocked ? (
+                  <Lock size={18} color={colors.tertiary} strokeWidth={1.5} />
+                ) : (
+                  <Icon
+                    size={20}
+                    color={isInProgress ? colors.accent.lime : colors.primary}
+                    strokeWidth={1.5}
+                  />
+                )}
               </View>
             </View>
-            
+
             <AppText variant="subheadline" color={colors.secondary} style={s.desc}>
-              {item.desc}
+              {mp.module.tagline}
             </AppText>
 
-            {item.progress && (
+            <View style={s.metaRow}>
+              <AppText variant="caption2" color={colors.tertiary}>
+                {mp.module.difficulty.toUpperCase()} · {formatDuration(mp.durationMinutes)}
+              </AppText>
+            </View>
+
+            {!isLocked && (
               <View style={s.progressSection}>
-                <ProgressBar 
-                  progress={item.progress.percent / 100} 
-                  color={colors.accent.lime}
-                  height={6}
-                />
+                <ProgressBar progress={mp.percent / 100} color={colors.accent.lime} height={6} />
                 <View style={s.progressStats}>
                   <AppText variant="caption" color={colors.secondary}>
-                    {item.progress.current}/{item.progress.total} Problems
+                    {mp.completedLessons}/{mp.totalLessons} Lessons
                   </AppText>
                   <AppText variant="caption" color={colors.accent.lime}>
-                    {item.progress.percent}%
+                    {mp.percent}%
                   </AppText>
                 </View>
               </View>
@@ -176,6 +173,18 @@ function PathCard({ item, index, isFirst, isLast }: {
 
 export default function JourneyScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
+  const { modules, overallPercent, completedLessons, totalLessons, lessonFraction } = useLearning();
+
+  const openModule = useCallback(
+    (mp: ModuleProgress) => {
+      // Jump to the first lesson not yet completed, else the module's first lesson.
+      const target: Lesson =
+        mp.module.lessons.find((l) => lessonFraction(l.id) < 1) ?? mp.module.lessons[0];
+      router.push(`/lesson/${target.id}`);
+    },
+    [router, lessonFraction]
+  );
 
   return (
     <AppScreen scrollable>
@@ -187,17 +196,24 @@ export default function JourneyScreen() {
           <AppText variant="subheadline" color={colors.secondary}>
             Data Structures & Algorithms
           </AppText>
+          <View style={s.overall}>
+            <ProgressBar progress={overallPercent / 100} color={colors.accent.lime} height={6} />
+            <AppText variant="caption" color={colors.tertiary} style={s.overallText}>
+              {completedLessons} of {totalLessons} lessons · {overallPercent}% complete
+            </AppText>
+          </View>
         </View>
       </FadeIn>
 
       <View style={s.pathContainer}>
-        {pathData.map((item, i) => (
-          <PathCard 
-            key={item.id} 
-            item={item} 
+        {modules.map((mp, i) => (
+          <PathCard
+            key={mp.module.id}
+            mp={mp}
             index={i}
             isFirst={i === 0}
-            isLast={i === pathData.length - 1} 
+            isLast={i === modules.length - 1}
+            onPress={() => openModule(mp)}
           />
         ))}
       </View>
@@ -209,17 +225,25 @@ const s = StyleSheet.create({
   header: {
     paddingTop: spacing.base,
     paddingBottom: spacing['2xl'],
-    alignItems: 'center',
   },
   heading: {
     letterSpacing: -0.3,
     marginBottom: spacing.xs,
+  },
+  overall: {
+    marginTop: spacing.lg,
+  },
+  overallText: {
+    marginTop: spacing.sm,
   },
   pathContainer: {
     paddingBottom: spacing.xl,
   },
   row: {
     flexDirection: 'row',
+  },
+  locked: {
+    opacity: 0.5,
   },
 
   // Timeline
@@ -306,6 +330,9 @@ const s = StyleSheet.create({
   },
   desc: {
     marginTop: spacing.xs,
+  },
+  metaRow: {
+    marginTop: spacing.sm,
   },
   progressSection: {
     marginTop: spacing.lg,
